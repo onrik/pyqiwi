@@ -54,6 +54,13 @@ class Qiwi(object):
         # type: (dict) -> str
         return urllib.urlencode({k: v for k, v in params.items() if v})
 
+    def _make_signature(self, data):
+        # type: (dict) -> str
+        joined = u'|'.join(data[key] for key in sorted(data.keys()))
+        return base64.b64encode(hmac.new(
+            self.notification_password, joined.encode('utf-8'), hashlib.sha1
+        ).digest())
+
     def _request(self, url, data=None, method='GET'):
         # type: (str, dict, str) -> dict
         request = urllib2.Request(url, headers={
@@ -194,6 +201,4 @@ class Qiwi(object):
         :param data: HTTP post data dict
         :return:
         """
-        joined = '|'.join(data[key] for key in sorted(data.keys()))
-        return signature == base64.b64encode(hmac.new(
-            self.notification_password, joined, hashlib.sha1).digest())
+        return self._make_signature(data) == signature
