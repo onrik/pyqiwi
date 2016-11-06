@@ -1,5 +1,5 @@
 # Pyqiwi
-Lib for QIWI payment system
+Lib for [QIWI](https://qiwi.com/) payment system
 
 
 Installation
