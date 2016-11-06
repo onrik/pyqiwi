@@ -8,8 +8,9 @@ import urllib2
 
 
 class QiwiError(Exception):
-    def __init__(self, code):
-        super(QiwiError, self).__init__('Result code: %s' % code)
+    def __init__(self, code, description=''):
+        super(QiwiError, self).__init__(
+            'Result code: %s (%s)' % (code, description))
         self.code = code
 
 
@@ -54,6 +55,10 @@ class Qiwi(object):
         # type: (dict) -> str
         return urllib.urlencode({k: v for k, v in params.items() if v})
 
+    def _make_auth(self, username, password):
+        # type: (str, str) -> str
+        return 'Basic %s' % base64.b64encode('%s:%s' % (username, password))
+
     def _make_signature(self, data):
         # type: (dict) -> str
         joined = u'|'.join(data[key] for key in sorted(data.keys()))
@@ -65,8 +70,7 @@ class Qiwi(object):
         # type: (str, dict, str) -> dict
         request = urllib2.Request(url, headers={
             'Accept': 'application/json',
-            'Authorization': 'Basic %s' % base64.b64encode(
-                '%s:%s' % (self.api_id, self.api_password))
+            'Authorization': self._make_auth(self.api_id, self.api_password),
         })
         if data:
             request.add_data(self._urlencode(data))
@@ -80,7 +84,7 @@ class Qiwi(object):
 
         response = json.load(response)['response']
         if response['result_code'] > 0:
-            raise QiwiError(response['result_code'])
+            raise QiwiError(response['result_code'], response.get('description', ''))
         else:
             return response
 
@@ -190,8 +194,7 @@ class Qiwi(object):
         :param auth: HTTP Authorization header value
         :return:
         """
-        return auth.replace('Basic ', '') == base64.b64encode('%s:%s' % (
-            self.shop_id, self.notification_password))
+        return self._make_auth(self.shop_id, self.notification_password) == auth
 
     def check_signature(self, signature, data):
         # type: (str, dict) -> bool
