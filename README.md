@@ -29,5 +29,5 @@ qiwi.create_invoice(
     lifetime=datetime.now()+timedelta(hours=1),  # Must be in Europe/Moscow timezone
 )
 
-print 'Invoice info:', qiwi.create_invoice('101')
+print 'Invoice info:', qiwi.get_invoice('101')
 print 'To pay invoice go to:', qiwi.get_invoice_url('101')
