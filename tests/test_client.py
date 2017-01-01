@@ -64,9 +64,41 @@ class QiwiClientTestCase(TestCase):
             'b': 'bar',
             'a': 'foo',
             'some': 'param',
+            'comment': u'Заказ №101'
         })
 
-        self.assertEqual(signature, 'Xk3rStjrqwlLfivnlpIDdAgj5fw=')
+        self.assertEqual(signature, '7nHZIf/w6DLq+CuvzV2BmhT71xA=')
+
+    def test__request(self):
+        url = 'http://example.com'
+        auth = self.client._make_auth(self.api_id, self.api_password)
+
+        httpretty.register_uri(httpretty.GET, url, '{"response": {"result_code": 0}}')
+
+        response = self.client._request(url)
+        request = httpretty.HTTPretty.last_request
+        self.assertEqual(response, {'result_code': 0})
+        self.assertEqual(request.headers.get('Accept'), 'application/json')
+        self.assertEqual(request.headers.get('Authorization'), auth)
+
+        httpretty.register_uri(httpretty.PUT, url, '{"response": {"result_code": 0}}')
+        response = self.client._request(url, {'user': 'tel:+79998887766'})
+        request = httpretty.HTTPretty.last_request
+        self.assertEqual(response, {'result_code': 0})
+        self.assertEqual(request.headers.get('Accept'), 'application/json')
+        self.assertEqual(request.headers.get('Authorization'), auth)
+        self.assertEqual(request.headers.get('Content-Type'), 'application/x-www-form-urlencoded')
+        self.assertEqual(request.body, 'user=tel%3A%2B79998887766')
+
+        httpretty.reset()
+
+        httpretty.register_uri(httpretty.GET, url, '{"response": {"result_code": 33}}')
+        try:
+            self.client._request(url)
+        except QiwiError as e:
+            self.assertEqual(e.code, 33)
+        else:
+            self.fail('QiwiError not raised')
 
     def test_create_invoice(self):
         invoice_id = '101'
@@ -217,4 +249,7 @@ class QiwiClientTestCase(TestCase):
         self.assertFalse(self.client.check_signature('', {}))
         self.assertFalse(self.client.check_signature('', {'foo': 'bar'}))
         self.assertFalse(self.client.check_signature('W18ltrPJoSb2N7AEM5Iik02wE10=', {'foo': '111'}))
-        self.assertTrue(self.client.check_signature('W18ltrPJoSb2N7AEM5Iik02wE10=', {'foo': 'bar'}))
+        self.assertTrue(self.client.check_signature('4C8pyw0rweDE0gZDYWT3E1B92aQ=', {
+            'foo': 'bar',
+            'commend': u'Заказ №102',
+        }))
