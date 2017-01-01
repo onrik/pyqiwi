@@ -15,6 +15,6 @@ setup(
     packages=['pyqiwi'],
     test_suite='tests',
     tests_require=[
-        'mock'
+        'httpretty'
     ],
 )
