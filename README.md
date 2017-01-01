@@ -1,4 +1,7 @@
 # Pyqiwi
+[![Build Status](https://travis-ci.org/onrik/pyqiwi.svg?branch=master)](https://travis-ci.org/onrik/pyqiwi)
+[![Coverage Status](https://coveralls.io/repos/github/onrik/pyqiwi/badge.svg?branch=master)](https://coveralls.io/github/onrik/pyqiwi?branch=master)
+
 Lib for [QIWI](https://qiwi.com/) payment system
 
 
