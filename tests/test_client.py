@@ -91,8 +91,8 @@ class QiwiClientTestCase(TestCase):
         self.assertEqual(request.body, 'user=tel%3A%2B79998887766')
 
         httpretty.reset()
-
-        httpretty.register_uri(httpretty.GET, url, '{"response": {"result_code": 33}}')
+        httpretty.register_uri(
+            httpretty.GET, url, '{"response": {"result_code": 33}}', status=400)
         try:
             self.client._request(url)
         except QiwiError as e:
