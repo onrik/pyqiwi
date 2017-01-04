@@ -83,7 +83,7 @@ class Qiwi(object):
         except HTTPError as e:
             response = e
 
-        response = json.load(response)['response']
+        response = json.loads(response.read().decode('utf-8'))['response']
         if response['result_code'] > 0:
             raise QiwiError(response['result_code'], response.get('description', ''))
         else:
