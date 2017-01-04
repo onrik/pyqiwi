@@ -27,6 +27,11 @@ class QiwiClientTestCase(TestCase):
     def tearDown(self):
         httpretty.reset()
 
+    def parse(self, data):
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+        return dict(map(lambda x: x.split('='), data.split('&')))
+
     def test__get_invoice_url(self):
         self.assertEqual(
             self.client._get_invoice_url('10001'),
@@ -46,7 +51,10 @@ class QiwiClientTestCase(TestCase):
             'user': 'tel:+79998887766',
         })
 
-        self.assertEqual(encoded, 'foo=bar&user=tel%3A%2B79998887766')
+        self.assertEqual(self.parse(encoded), {
+            'foo': 'bar',
+            'user': 'tel%3A%2B79998887766',
+        })
 
     def test_make_auth(self):
         self.assertEqual(
@@ -122,12 +130,12 @@ class QiwiClientTestCase(TestCase):
         )
 
         self.assertEqual(invoice, {'invoice_id': '101'})
-        self.assertEqual(httpretty.HTTPretty.last_request.parsed_body, {
-            'amount': ['22.00'],
-            'ccy': ['RUB'],
-            'comment': ['Order #101'],
-            'user': ['tel: 79998887766'],
-            'lifetime': ['2017-01-02T15:22:33']
+        self.assertEqual(self.parse(httpretty.HTTPretty.last_request.body), {
+            'amount': '22.00',
+            'ccy': 'RUB',
+            'comment': 'Order+%23101',
+            'user': 'tel%3A%2B79998887766',
+            'lifetime': '2017-01-02T15%3A22%3A33',
         })
 
     def test_cancel_invoice(self):
