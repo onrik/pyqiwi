@@ -1,10 +1,10 @@
 # coding: utf-8
+from __future__ import absolute_import
 import json
 import hmac
 import base64
-import urllib
 import hashlib
-import urllib2
+from .compat import HTTPError, Request, urlopen, urlencode
 
 
 class QiwiError(Exception):
@@ -53,33 +53,34 @@ class Qiwi(object):
 
     def _urlencode(self, params):
         # type: (dict) -> str
-        return urllib.urlencode({k: v for k, v in params.items() if v})
+        return urlencode({k: v for k, v in params.items() if v})
 
     def _make_auth(self, username, password):
-        # type: (str, str) -> str
-        return 'Basic %s' % base64.b64encode('%s:%s' % (username, password))
+        # type: (str, str) -> bytes
+        return b'Basic %s' % base64.b64encode(
+            ('%s:%s' % (username, password)).encode('utf-8'))
 
     def _make_signature(self, data):
-        # type: (dict) -> str
+        # type: (dict) -> bytes
         joined = u'|'.join(data[key] for key in sorted(data.keys()))
-        return base64.b64encode(hmac.new(
-            self.notification_password, joined.encode('utf-8'), hashlib.sha1
-        ).digest())
+        mac = hmac.new(self.notification_password.encode('utf-8'),
+                       joined.encode('utf-8'), hashlib.sha1).digest()
+        return base64.b64encode(mac)
 
     def _request(self, url, data=None, method='GET'):
         # type: (str, dict, str) -> dict
-        request = urllib2.Request(url, headers={
+        request = Request(url, headers={
             'Accept': 'application/json',
             'Authorization': self._make_auth(self.api_id, self.api_password),
         })
         if data:
-            request.add_data(self._urlencode(data))
+            request.data = self._urlencode(data).encode('utf-8')
             request.add_header('Content-Type', 'application/x-www-form-urlencoded')
             request.get_method = lambda: method
 
         try:
-            response = urllib2.urlopen(request)
-        except urllib2.HTTPError as e:
+            response = urlopen(request)
+        except HTTPError as e:
             response = e
 
         response = json.load(response)['response']

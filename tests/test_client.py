@@ -51,12 +51,12 @@ class QiwiClientTestCase(TestCase):
     def test_make_auth(self):
         self.assertEqual(
             self.client._make_auth('user1', 'password'),
-            'Basic dXNlcjE6cGFzc3dvcmQ='
+            b'Basic dXNlcjE6cGFzc3dvcmQ='
         )
 
         self.assertEqual(
             self.client._make_auth('123456', 'zLQkZDdRvBNUkf9spassword'),
-            'Basic MTIzNDU2OnpMUWtaRGRSdkJOVWtmOXNwYXNzd29yZA=='
+            b'Basic MTIzNDU2OnpMUWtaRGRSdkJOVWtmOXNwYXNzd29yZA=='
         )
 
     def test__make_signature(self):
@@ -67,11 +67,11 @@ class QiwiClientTestCase(TestCase):
             'comment': u'Заказ №101'
         })
 
-        self.assertEqual(signature, '7nHZIf/w6DLq+CuvzV2BmhT71xA=')
+        self.assertEqual(signature, b'7nHZIf/w6DLq+CuvzV2BmhT71xA=')
 
     def test__request(self):
         url = 'http://example.com'
-        auth = self.client._make_auth(self.api_id, self.api_password)
+        auth = self.client._make_auth(self.api_id, self.api_password).decode('utf-8')
 
         httpretty.register_uri(httpretty.GET, url, '{"response": {"result_code": 0}}')
 
@@ -88,7 +88,7 @@ class QiwiClientTestCase(TestCase):
         self.assertEqual(request.headers.get('Accept'), 'application/json')
         self.assertEqual(request.headers.get('Authorization'), auth)
         self.assertEqual(request.headers.get('Content-Type'), 'application/x-www-form-urlencoded')
-        self.assertEqual(request.body, 'user=tel%3A%2B79998887766')
+        self.assertEqual(request.body, b'user=tel%3A%2B79998887766')
 
         httpretty.reset()
         httpretty.register_uri(
@@ -122,10 +122,13 @@ class QiwiClientTestCase(TestCase):
         )
 
         self.assertEqual(invoice, {'invoice_id': '101'})
-        self.assertEqual(
-            httpretty.HTTPretty.last_request.body,
-            'comment=Order+%23101&lifetime=2017-01-02T15%3A22%3A33&amount=22.00&ccy=RUB&user=tel%3A%2B79998887766'
-        )
+        self.assertEqual(httpretty.HTTPretty.last_request.parsed_body, {
+            'amount': ['22.00'],
+            'ccy': ['RUB'],
+            'comment': ['Order #101'],
+            'user': ['tel: 79998887766'],
+            'lifetime': ['2017-01-02T15:22:33']
+        })
 
     def test_cancel_invoice(self):
         invoice_id = '102'
@@ -149,7 +152,7 @@ class QiwiClientTestCase(TestCase):
 
         self.assertEqual(
             httpretty.HTTPretty.last_request.body,
-            'status=rejected'
+            b'status=rejected'
         )
 
     def test_get_invoice(self):
@@ -199,7 +202,7 @@ class QiwiClientTestCase(TestCase):
 
         self.assertEqual(
             httpretty.HTTPretty.last_request.body,
-            'amount=100.00'
+            b'amount=100.00'
         )
 
     def test_get_refund(self):
@@ -229,27 +232,36 @@ class QiwiClientTestCase(TestCase):
         })
 
     def test_get_invoice_url(self):
-        self.assertEqual(
-            self.client.get_invoice_url('106'),
-            'https://bill.qiwi.com/order/external/main.action?shop=123&transaction=106'
-        )
+        url = self.client.get_invoice_url('106')
+        expected = 'https://bill.qiwi.com/order/external/main.action?' + self.client._urlencode({
+            'shop': self.client.shop_id,
+            'transaction': '106',
+        })
+        self.assertEqual(url, expected)
 
-        self.assertEqual(
-            self.client.get_invoice_url('106', True, 'http://google.com/success', 'http://google.com/fail', 'iframe', 'qw'),
-            'https://bill.qiwi.com/order/external/main.action?shop=123&transaction=106&target=iframe&fail_url=http%3A%2F%2Fgoogle.com%2Ffail&success_url=http%3A%2F%2Fgoogle.com%2Fsuccess&iframe=True&pay_source=qw'
-        )
+        url = self.client.get_invoice_url('107', True, 'http://google.com/success', 'http://google.com/fail', 'iframe', 'qw')
+        expected = 'https://bill.qiwi.com/order/external/main.action?' + self.client._urlencode({
+            'shop': self.client.shop_id,
+            'transaction': '107',
+            'iframe': True,
+            'success_url': 'http://google.com/success',
+            'fail_url': 'http://google.com/fail',
+            'target': 'iframe',
+            'pay_source': 'qw',
+        })
+        self.assertEqual(url, expected)
 
     def test_check_auth(self):
         self.assertFalse(self.client.check_auth(''))
         self.assertFalse(self.client.check_auth(None))
-        self.assertFalse(self.client.check_auth('Basic MTExOjIyMg=='))
-        self.assertTrue(self.client.check_auth('Basic MTIzOnF3ZTEyMw=='))
+        self.assertFalse(self.client.check_auth(b'Basic MTExOjIyMg=='))
+        self.assertTrue(self.client.check_auth(b'Basic MTIzOnF3ZTEyMw=='))
 
     def test_check_signature(self):
         self.assertFalse(self.client.check_signature('', {}))
         self.assertFalse(self.client.check_signature('', {'foo': 'bar'}))
-        self.assertFalse(self.client.check_signature('W18ltrPJoSb2N7AEM5Iik02wE10=', {'foo': '111'}))
-        self.assertTrue(self.client.check_signature('4C8pyw0rweDE0gZDYWT3E1B92aQ=', {
+        self.assertFalse(self.client.check_signature(b'W18ltrPJoSb2N7AEM5Iik02wE10=', {'foo': '111'}))
+        self.assertTrue(self.client.check_signature(b'4C8pyw0rweDE0gZDYWT3E1B92aQ=', {
             'foo': 'bar',
             'commend': u'Заказ №102',
         }))
